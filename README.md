@@ -1,44 +1,50 @@
 # DesktopPet (WPF, .NET 8)
 
-一个可以在 **Windows 本地直接开发和运行** 的 WPF 桌宠项目（类似 QQ 宠物风格）。
-当前版本已经是“可用骨架”：支持导入宠物照片、简单自动透明化、保存 PNG、播放浮动动画。
+一个可在 **Windows 本地开发与运行** 的 WPF 桌宠项目骨架，定位为类似 QQ 宠物风格的桌面宠物。
 
-> 云端 Linux 容器仅用于代码生成/静态检查；WPF GUI 的运行与完整调试请在 Windows + Visual Studio 完成。
+> 说明：当前仓库重点完成可编译项目结构与跨环境检查配置。云端 Linux 容器仅用于代码生成/静态检查；GUI 实际运行请在 Windows + Visual Studio 中进行。
 
-## 功能现状（可用版本）
+## 1. 技术栈
 
-- 上传宠物照片（PNG/JPG/BMP/GIF）
-- 自动透明化（根据左上角背景色 + 阈值做抠图）
-- 保存透明 PNG 到项目输出目录
-- 浮动动画（上下轻微漂浮）
-- 无边框、透明背景、置顶窗口，可拖动
+- C# 12
+- WPF
+- .NET 8 (`net8.0-windows`)
 
-## 项目配置要求（已完成）
+## 2. 云端与本地的关系
 
-`DesktopPet/DesktopPet.csproj` 已包含：
+- 云端（如 Codex Linux 容器）：主要做
+  - 代码生成
+  - `dotnet restore`
+  - `dotnet build`（尽量）
+- 本地 Windows：负责
+  - GUI 实际运行
+  - 调试窗口透明、置顶、拖拽、动画效果
 
-- `TargetFramework = net8.0-windows`
-- `UseWPF = true`
-- `EnableWindowsTargeting = true`
+> 如在 Linux 上构建 WPF 遇到平台限制，这是预期行为；请以 Windows 本地构建结果为准。
 
-## Windows 本地开发步骤
+## 3. 安装 .NET 8 SDK（Windows）
 
-### 1) 安装 .NET 8 SDK
-
-1. 打开：<https://dotnet.microsoft.com/download/dotnet/8.0>
-2. 安装 **.NET SDK 8.x (Windows x64)**
-3. PowerShell 验证：
+1. 打开官方页面：
+   - https://dotnet.microsoft.com/download/dotnet/8.0
+2. 下载并安装 **.NET SDK 8.x (Windows x64)**。
+3. 安装完成后在 PowerShell 验证：
 
 ```powershell
 dotnet --info
 ```
 
-### 2) 安装 Visual Studio 2022
+## 4. 如何在 Windows 本地打开项目
 
-- 建议 VS 2022 17.8+
-- 勾选工作负载：**.NET 桌面开发**
+### 方案 A：Visual Studio 2022（推荐）
 
-### 3) 打开并运行
+1. 安装 Visual Studio 2022（17.8+）。
+2. 勾选工作负载：
+   - **.NET 桌面开发**
+3. 打开 `DesktopPet.sln`。
+4. 选择 `DesktopPet` 为启动项目。
+5. 按 `F5` 运行。
+
+### 方案 B：命令行
 
 ```powershell
 cd <repo-path>
@@ -47,39 +53,57 @@ dotnet build DesktopPet.sln -c Debug
 dotnet run --project .\DesktopPet\DesktopPet.csproj
 ```
 
-或直接双击 `DesktopPet.sln` 用 VS 打开后按 `F5`。
-
-## 素材目录结构
+## 5. 素材目录结构（支持自定义宠物照片）
 
 ```text
 DesktopPet/
   Assets/
     Pets/
       SamplePet/
-        Original/      # 原始宠物照片
-        Generated/     # 透明图、切帧图、动画序列
-    Effects/           # 特效资源（阴影、粒子、光晕）
+        Original/      # 你上传的原始宠物照片
+        Generated/     # 处理后的透明图、切帧图、动画序列
+    Effects/           # 特效资源（光晕、阴影、粒子贴图等）
 ```
 
-运行时保存透明 PNG 的默认路径（示例）：
+建议流程：
+1. 将宠物照片放入 `Original/`。
+2. 使用你常用的抠图/背景移除工具生成透明 PNG，放入 `Generated/`。
+3. 后续可加入逐帧动作图（如 `idle_0001.png` ...）用于动画。
+
+## 6. 项目结构
 
 ```text
-DesktopPet/bin/Debug/net8.0-windows/Assets/Pets/MyPet/Generated/
+DesktopPet.sln
+DesktopPet/
+  DesktopPet.csproj
+  App.xaml
+  App.xaml.cs
+  MainWindow.xaml
+  MainWindow.xaml.cs
+  Assets/
 ```
 
-## Linux/Codex 环境说明（必须阅读）
+## 7. 关键项目配置
 
-在 Linux 容器里通常会遇到以下情况（均正常）：
+`DesktopPet.csproj` 已包含：
 
-1. `dotnet restore` 受网络/代理限制失败（无法访问 nuget）
-2. `dotnet build` 缺少 WindowsDesktop SDK 目标
+- `<TargetFramework>net8.0-windows</TargetFramework>`
+- `<UseWPF>true</UseWPF>`
+- `<EnableWindowsTargeting>true</EnableWindowsTargeting>`
 
-这不代表项目不可用。**实际运行请在 Windows 本地完成**。
+这使得在非 Windows 环境也可尽量执行 restore/build 检查。
 
-## 下一步建议（我可以继续帮你补）
+## 8. 下一步可扩展方向
 
-- 更好的抠图：边缘羽化、抗锯齿、前景识别
-- 多动作动画：idle / walk / click
-- 桌宠交互：点击摸头、随机语音气泡
-- 托盘菜单：切换宠物、开机启动、透明度/大小调节
-- 接入 AI：根据宠物照片自动生成多姿态 PNG 序列
+- 拖拽移动（鼠标按下拖动窗口）
+- 透明穿透与点击策略
+- Idle/Walk/Interact 动画状态机
+- 自动抠图与风格化（接入图像处理/生成模型）
+- 托盘图标、右键菜单、开机自启
+
+---
+
+如果你希望，我下一步可以继续补上：
+- 宠物图片自动加载与回退逻辑
+- 简单逐帧动画播放器
+- Windows 本地可用的一键导入照片脚本
