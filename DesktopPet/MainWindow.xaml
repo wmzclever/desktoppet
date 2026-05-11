@@ -5,21 +5,57 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="Desktop Pet"
-        Width="360"
+        Width="340"
         Height="420"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
         ResizeMode="NoResize"
         Topmost="True"
-        ShowInTaskbar="False">
+        ShowInTaskbar="False"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
     <Grid>
-        <Border Background="#AA111111" CornerRadius="16" Padding="16" VerticalAlignment="Bottom" Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border Margin="8" Background="#CC111111" CornerRadius="14" Padding="12">
+            <DockPanel>
+                <TextBlock Text="Desktop Pet" Foreground="White" FontSize="16" FontWeight="SemiBold" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="—" Width="28" Height="24" Margin="4,0,0,0" Click="Minimize_Click" />
+                    <Button Content="×" Width="28" Height="24" Margin="4,0,0,0" Click="Close_Click" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <Border Grid.Row="1" Margin="8,0,8,0" Background="#B51C1C1C" CornerRadius="14" Padding="10">
+            <Grid>
+                <Image x:Name="PetImage" Stretch="Uniform" RenderTransformOrigin="0.5,0.5">
+                    <Image.RenderTransform>
+                        <TranslateTransform x:Name="PetTranslate" />
+                    </Image.RenderTransform>
+                </Image>
+                <TextBlock x:Name="PlaceholderText" Text="点击下方【上传宠物照片】开始\n支持 PNG/JPG/BMP/GIF" Foreground="#E0E0E0"
+                           TextAlignment="Center" VerticalAlignment="Center" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2" Margin="8" Background="#CC111111" CornerRadius="14" Padding="10">
             <StackPanel>
-                <TextBlock Text="桌宠预览 / Desktop Pet" Foreground="White" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
-                <TextBlock Text="将你的宠物照片放到 Assets/Pets/{PetName}/Original/ 目录。" Foreground="#FFE0E0E0" TextWrapping="Wrap" />
-                <TextBlock Text="后续可接入抠图/透明化与帧动画生成流程。" Foreground="#FFE0E0E0" TextWrapping="Wrap" Margin="0,8,0,0" />
-                <Button Content="关闭" Width="72" HorizontalAlignment="Right" Margin="0,12,0,0" Click="CloseButton_Click" />
+                <TextBlock x:Name="StatusText" Foreground="#E0E0E0" Text="等待导入图片..." Margin="0,0,0,8" TextWrapping="Wrap" />
+                <WrapPanel>
+                    <Button Content="上传宠物照片" Margin="0,0,8,8" Padding="10,4" Click="Upload_Click" />
+                    <Button Content="自动透明化" Margin="0,0,8,8" Padding="10,4" Click="RemoveBackground_Click" />
+                    <Button Content="保存结果" Margin="0,0,8,8" Padding="10,4" Click="SaveProcessed_Click" />
+                    <Button Content="播放浮动动画" Margin="0,0,8,8" Padding="10,4" Click="ToggleAnimation_Click" />
+                </WrapPanel>
+                <DockPanel>
+                    <TextBlock Text="透明阈值" Foreground="#E0E0E0" Margin="0,0,8,0" VerticalAlignment="Center" />
+                    <Slider x:Name="ToleranceSlider" Minimum="5" Maximum="100" Value="38" TickFrequency="1" IsSnapToTickEnabled="True" />
+                </DockPanel>
             </StackPanel>
         </Border>
     </Grid>
