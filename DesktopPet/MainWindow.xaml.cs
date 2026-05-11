@@ -1,159 +1,84 @@
-using Microsoft.Win32;
-using System;
-using System.IO;
+using DesktopPet.Controllers;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media.Animation;
-using System.Windows.Media.Imaging;
 
 namespace DesktopPet;
 
 public partial class MainWindow : Window
 {
-    private BitmapSource? _originalImage;
-    private BitmapSource? _processedImage;
-    private bool _isAnimating;
-    private Storyboard? _floatStoryboard;
+    private readonly PetController _controller;
+    private bool _isDragging;
 
     public MainWindow()
     {
         InitializeComponent();
+
+        _controller = new PetController(
+            PetImage,
+            FlipTransform,
+            ActionScale,
+            ActionTranslate,
+            (l, t) => { Left = l; Top = t; },
+            () => (Left, Top, Width, Height));
+
+        BuildContextMenu();
+
+        Loaded += (_, _) => _controller.Initialize();
+        MouseLeftButtonDown += OnLeftDown;
+        MouseLeftButtonUp += OnLeftUp;
+        MouseMove += OnMouseMove;
     }
 
-    private void Upload_Click(object sender, RoutedEventArgs e)
+    private void BuildContextMenu()
     {
-        var dialog = new OpenFileDialog
-        {
-            Title = "选择宠物照片",
-            Filter = "图片文件|*.png;*.jpg;*.jpeg;*.bmp;*.gif"
-        };
+        var menu = new ContextMenu();
 
-        if (dialog.ShowDialog() != true)
-        {
-            return;
-        }
+        menu.Items.Add(NewItem("导入宠物图片/动画素材", (_, _) => _controller.ImportPetAsset()));
+        menu.Items.Add(NewItem("开始/暂停移动", (_, _) => _controller.ToggleMovement()));
+        menu.Items.Add(NewItem("打开设置", (_, _) => MessageBox.Show("当前版本设置项较少：\n1) 右键可导入素材\n2) 可暂停移动\n后续可扩展独立设置窗口。", "设置")));
+        menu.Items.Add(NewItem("重置位置", (_, _) => _controller.ResetToBottom()));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(NewItem("退出", (_, _) => Close()));
 
-        var bitmap = new BitmapImage();
-        bitmap.BeginInit();
-        bitmap.CacheOption = BitmapCacheOption.OnLoad;
-        bitmap.UriSource = new Uri(dialog.FileName);
-        bitmap.EndInit();
-        bitmap.Freeze();
-
-        _originalImage = bitmap;
-        _processedImage = null;
-        PetImage.Source = _originalImage;
-        PlaceholderText.Visibility = Visibility.Collapsed;
-        StatusText.Text = $"已加载：{Path.GetFileName(dialog.FileName)}";
+        ContextMenu = menu;
     }
 
-    private void RemoveBackground_Click(object sender, RoutedEventArgs e)
+    private static MenuItem NewItem(string header, RoutedEventHandler click)
     {
-        if (_originalImage is null)
-        {
-            StatusText.Text = "请先上传宠物照片。";
-            return;
-        }
-
-        var tolerance = (byte)ToleranceSlider.Value;
-        _processedImage = MakeCornerColorTransparent(_originalImage, tolerance);
-        PetImage.Source = _processedImage;
-        StatusText.Text = $"透明化完成（阈值：{tolerance}）。建议检查边缘并调整阈值。";
+        var item = new MenuItem { Header = header };
+        item.Click += click;
+        return item;
     }
 
-    private void SaveProcessed_Click(object sender, RoutedEventArgs e)
+    private void OnLeftDown(object sender, MouseButtonEventArgs e)
     {
-        if (_processedImage is null)
-        {
-            StatusText.Text = "没有可保存的处理结果，请先执行自动透明化。";
-            return;
-        }
-
-        var outputDir = Path.Combine(AppContext.BaseDirectory, "Assets", "Pets", "MyPet", "Generated");
-        Directory.CreateDirectory(outputDir);
-
-        var fileName = $"pet_transparent_{DateTime.Now:yyyyMMdd_HHmmss}.png";
-        var outputPath = Path.Combine(outputDir, fileName);
-
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(_processedImage));
-        using var fs = File.Create(outputPath);
-        encoder.Save(fs);
-
-        StatusText.Text = $"已保存：{outputPath}";
+        _isDragging = true;
+        CaptureMouse();
+        DragMove();
     }
 
-    private void ToggleAnimation_Click(object sender, RoutedEventArgs e)
+    private void OnLeftUp(object sender, MouseButtonEventArgs e)
     {
-        if (_isAnimating)
-        {
-            _floatStoryboard?.Stop();
-            PetTranslate.Y = 0;
-            _isAnimating = false;
-            StatusText.Text = "浮动动画已停止。";
-            return;
-        }
-
-        var animation = new DoubleAnimation
-        {
-            From = 0,
-            To = -8,
-            Duration = TimeSpan.FromMilliseconds(900),
-            AutoReverse = true,
-            RepeatBehavior = RepeatBehavior.Forever,
-            EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
-        };
-
-        _floatStoryboard = new Storyboard();
-        Storyboard.SetTarget(animation, PetTranslate);
-        Storyboard.SetTargetProperty(animation, new PropertyPath("Y"));
-        _floatStoryboard.Children.Add(animation);
-        _floatStoryboard.Begin();
-
-        _isAnimating = true;
-        StatusText.Text = "浮动动画播放中。";
+        if (!_isDragging) return;
+        _isDragging = false;
+        ReleaseMouseCapture();
+        _controller.SavePosition(Left, Top);
     }
 
-    private static BitmapSource MakeCornerColorTransparent(BitmapSource source, byte tolerance)
+    private void OnMouseMove(object sender, MouseEventArgs e)
     {
-        var formatted = new FormatConvertedBitmap(source, System.Windows.Media.PixelFormats.Bgra32, null, 0);
-        var width = formatted.PixelWidth;
-        var height = formatted.PixelHeight;
-        var stride = width * 4;
-        var pixels = new byte[height * stride];
-        formatted.CopyPixels(pixels, stride, 0);
-
-        var b0 = pixels[0];
-        var g0 = pixels[1];
-        var r0 = pixels[2];
-
-        for (var i = 0; i < pixels.Length; i += 4)
+        if (_isDragging && e.LeftButton == MouseButtonState.Released)
         {
-            var db = Math.Abs(pixels[i] - b0);
-            var dg = Math.Abs(pixels[i + 1] - g0);
-            var dr = Math.Abs(pixels[i + 2] - r0);
-
-            if (db <= tolerance && dg <= tolerance && dr <= tolerance)
-            {
-                pixels[i + 3] = 0;
-            }
-        }
-
-        var result = BitmapSource.Create(width, height, formatted.DpiX, formatted.DpiY,
-            System.Windows.Media.PixelFormats.Bgra32, null, pixels, stride);
-        result.Freeze();
-        return result;
-    }
-
-    private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (e.ButtonState == MouseButtonState.Pressed)
-        {
-            DragMove();
+            _isDragging = false;
+            ReleaseMouseCapture();
+            _controller.SavePosition(Left, Top);
         }
     }
 
-    private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
-
-    private void Close_Click(object sender, RoutedEventArgs e) => Close();
+    protected override void OnClosed(System.EventArgs e)
+    {
+        _controller.SavePosition(Left, Top);
+        base.OnClosed(e);
+    }
 }
